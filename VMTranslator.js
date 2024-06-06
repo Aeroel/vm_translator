@@ -1,26 +1,24 @@
 'use strict'
 const { argv } = require('node:process')
 const fs = require('fs').promises;
-class ObjectOnPath {
-    path = null
-    type = null
-    directoryFilePaths = null
-    constructor(path) {
-        this.init(path)
-    }
-    async init(path) {
-        this.path = path
-        const stats = await fs.stat(this.path);
+const InstanceOfVMTranslator = require("./InstanceOfVMTranslator")
+
+    async function getObjectOnPath(path) {
+        const stats = await fs.stat(path);
+        let type;
+        let directoryFilePaths = null;
         if (stats.isFile()) {
-            this.type = 'file'
+            type = 'file'
         } else if (stats.isDirectory()) {
-            this.type = 'directory'
-            await this.getFilePaths()
+            type = 'directory'
+            directoryFilePaths = await getFilePaths()
         } else {
             throw new Error(`${this.path} is neither a regular file nor a directory.`)
         }
+        const objectOnPath = {path, type, directoryFilePaths}
+        return objectOnPath
     }
-    async getFilePaths() {
+    async function getFilePaths() {
           const files = await fs.readdir(this.path);
 
           const filePaths = [];
@@ -35,7 +33,7 @@ class ObjectOnPath {
           }
           this.directoryFilePaths = filePaths
     }
-}
+
 main()
 async function main() {
     global.debug = true
@@ -48,8 +46,8 @@ async function main() {
     if (!path) {
         throw new Error('Please provide a file or directory path as an argument.')
     }
-    const objectOnPath = new ObjectOnPath(path);
-    const InstanceOfVMTranslator = require("./InstanceOfVMTranslator")
+    const objectOnPath = await getObjectOnPath(path);
+    console.log(objectOnPath)
     if (objectOnPath.type === 'file') {
         console.log("hmm");
         new InstanceOfVMTranslator(objectOnPath.path);

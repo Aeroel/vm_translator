@@ -2,32 +2,47 @@ const Parser = require('./Parser')
 const CodeWriter = require('./CodeWriter');
 const pathModule = require('path')
 
- class InstanceOfVMTranslator {
+class InstanceOfVMTranslator {
     constructor(path) {
         const parser = new Parser(path)
-        asmPath = replaceFileExtensionOfPathFromVMToAsm(path)
+        let asmPath = replaceFileExtensionOfPathFromVMToAsm(path)
         const codeWriter = new CodeWriter(asmPath)
-
-        while(parser.hasMoreCommandsLeftToProcess()) {
-            if(parser.commandHasArg2()) {
-                if(['pop', 'push'].includes(parser.commandType())) {
+        if (debug) {
+            console.log("Proceeding to go through VM commands");
+        }
+        let commsProcessed = 0
+        while (parser.hasMoreCommandsLeftToProcess()) {
+            console.log("Current command: " + parser.currentCommand)
+            console.log("Current command's type: " + parser.commandType());
+            console.log("Arg1: " + parser.arg1());
+            if (['push', 'pop', 'call', 'function'].includes(parser.commandType())) {
+                console.log("Arg2: " + parser.arg2());
+            }
+            console.log("Does command have arg2?: "+parser.commandHasArg2());
+            if (parser.commandHasArg2()) {
+                if (['pop', 'push'].includes(parser.commandType())) {
+                    console.log("!!!!!");
                     codeWriter.writePopPush(parser.commandType(), parser.arg1(), parser.arg2())
                 }
+            } else {
+                    codeWriter.writeArithmetic(parser.arg1())
             }
             parser.advanceToNextCommand()
+            commsProcessed++
         }
+        console.log("Commands while loop encountered: "+ commsProcessed);
         codeWriter.close()
     }
 }
 function replaceFileExtensionOfPathFromVMToAsm(filePath) {
-        if (pathModule.extname(filePath) !== '.vm') {
+    if (pathModule.extname(filePath) !== '.vm') {
         throw new Error('The provided file does not have a .vm extension.')
-        }
+    }
 
-        // Replace the .vm extension with .asm
-        const asmFilePath = filePath.slice(0, -3) + '.asm'
+    // Replace the .vm extension with .asm
+    const asmFilePath = filePath.slice(0, -3) + '.asm'
 
-        return asmFilePath
+    return asmFilePath
 }
 
 module.exports = InstanceOfVMTranslator

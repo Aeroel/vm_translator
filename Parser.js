@@ -1,5 +1,7 @@
-const VMCleaner = require('./VMCleaner').default
-const fsProm = require('node:fs/promises');
+const { Console } = require('node:console');
+const VMCleaner = require('./VMCleaner')
+const fs = require('node:fs');
+
 class Parser {
   commandTypesThatHaveArg2 = ['push', 'pop', 'call', 'function']
   arithmeticCommands = ["add", "sub", "neg", "eq", "gt", "lt", "and", "or", "not"]
@@ -7,10 +9,7 @@ class Parser {
   currentCommandIndex = 0
   currentCommand = null
   constructor(filePath) {
-    this.init(filePath)
-  }
-  async init(filePath) {
-    if (!filePath) {
+ if (!filePath) {
       throw new Error("Please provide a filePath")
     }
 
@@ -20,7 +19,7 @@ class Parser {
       if (debug) {
         console.log(`Reading ${filePath} `)
       }
-      fileContents = await fsProm.readFile(filePath, { encoding: 'utf8' });
+      fileContents = fs.readFileSync(filePath, { encoding: 'utf8' });
       if (debug) {
         console.log(`Showing contents below:`);
         console.log(fileContents);
@@ -31,15 +30,16 @@ class Parser {
     const cleanedUpVMCommandsString = VMCleaner(fileContents)
     if (debug) {
       console.log("Cleaned up VM Code: ")
-      console.log(cleanedUpVMCode)
+      console.log(cleanedUpVMCommandsString)
     }
     const VMCommandsArray = cleanedUpVMCommandsString.split('\n')
     this.commands = VMCommandsArray
     this.currentCommand = this.commands[this.currentCommandIndex]
-
-
   }
   hasMoreCommandsLeftToProcess() {
+    if(debug) {
+      console.log(this.commands);
+    }
     return (this.currentCommandIndex < (this.commands.length))
   }
   advanceToNextCommand() {
@@ -50,7 +50,7 @@ class Parser {
     const currentCommandParts = this.currentCommand.split(' ')
 
     if(this.arithmeticCommands.includes(currentCommandParts[0])) {
-      return "arithemtic"
+      return "arithmetic"
     }
 
     if(currentCommandParts[0] === "push") {
@@ -63,10 +63,17 @@ class Parser {
 
   }
   arg1() {
-    if(this.commandType === 'arithmetic') {
-      const currentCommandParts = this.currentCommand.split(' ')
+    const currentCommandParts = this.currentCommand.split(' ')
+    if(debug) {
+      console.log("Arg1: Command parts:  " + currentCommandParts);
+      console.log("Comtype: " + this.commandType());
+    }
+    if(this.commandType() === 'arithmetic') {
+      
       // will return whatever the arithmetic command is (add, sub or whatever it may happen to be)
       return currentCommandParts[0]
+    } else {
+      return currentCommandParts[1]
     }
   }
   arg2() {
@@ -79,7 +86,7 @@ class Parser {
   }
 
   commandHasArg2() {
-    return (this.commandTypesThatHaveArg2.includes(this.commandType))
+    return (this.commandTypesThatHaveArg2.includes(this.commandType()))
   }
 }
 

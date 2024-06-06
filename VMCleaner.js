@@ -18,7 +18,7 @@ function VMCleaner(myStr, debug) {
   
   
   function removeWhitespaceExceptNewlines(inputString) {
-    return inputString.replace(/[^\S\n]/g, '');
+    return inputString.split('\n').map(line => line.replace(/\s+/g, ' ')).join('\n');
   }
   
   function removeComments(inputString) {
