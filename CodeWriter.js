@@ -18,25 +18,25 @@ class CodeWriter {
         switch (name) {
             case "arithmetic init":
                 asmInstr = `
-            // arithmetic init
-            // D now contains SP-2 and M now contains SP-1
-            @SP
-            M=M-1
-            M=M-1
-            A=M
-            D=M
-            @SP
-            M=M+1
-            A=M
+                @SP
+                M=M-1
+                A=M
+                D=M
+                @SP
+                M=M-1
+                A=M
             `
-                break
-
-            case "arithmetic end":
-
+            // now arg1 is avaialble in D and arg2 is in M
+            break;
+            case 'arithmetic end':
                 asmInstr = `
-                // arithmetic end here, but no commands are actually gen'ed for it
+                @SP
+                A=M
+                M=D
+                @SP
+                M=M+1
                 `
-                break
+            break
         }
         return asmInstr
     }
@@ -48,44 +48,20 @@ class CodeWriter {
         switch (command) {
             case "add":
                 code = `
-                        // add
-                        ${this.asmPart("arithmetic init")}
-
-                        // the      actual add operation
-                        D=D+M
-                        
-                        ${this.asmPart("arithmetic end")}
-
+                // add
+                ${this.asmPart("arithmetic init")}
+                D=D+M
+                ${this.asmPart("arithmetic end")}
                 `
                 break
             case "sub":
                 code = `
-                            // sub
-                            ${this.asmPart("arithmetic init")}
-                            
-                            // the actual sub operation
-                            D=D-M
-                            
-                            ${this.asmPart("arithmetic end")}
-
+                // sub
+                ${this.asmPart("arithmetic init")}
+                D=D-M
+                ${this.asmPart("arithmetic end")}
+                
     `
-                break;
-            case "eq":
-            case "lt":
-            case "gt":
-
-            code = this.writeCmp(command);
-            break;
-            case "neg":
-            case "not":
-                code = this.writeNegOrNot(command);
-            break;
-            case "and":
-            case "or":
-                code = this.writeAndOrOr(command);
-            break;
-            default:
-                throw new Error("Unknown command encountered: " + command);
                 break;
         }
         this.fileStream.write(code)
@@ -108,65 +84,56 @@ class CodeWriter {
         @SP
         M=M+1
         `
-        return code
+        this.fileStream.write(code)
     }
     writeNegOrNot(command) {
         const negOrNotAsm = {neg: "-", not: "!"}
         const code= `
+        // ${command}
         @SP
         M=M-1
         A=M
-        D=M
-        D=${negOrNotAsm[command]}D
-        @SP
-        A=M
-        M=D
+        M=${negOrNotAsm[command]}M
         @SP
         M=M+1
         `
-        return code;
+        this.fileStream.write(code)
     }
-    writeCmp(command) {
+    writeComparison(command) {
         const availableLabelId = this.provideAvailableLabelId();
         const asm = {eq: `JEQ`, gt: `JGT`, lt: `JLT`}
-        const cmpHeader = `
-        D=D-M
-        @IF_TRUE_${availableLabelId}
-        `
 
+        const cmpHeader = `
+                D=D-M
+                @IF_TRUE_${availableLabelId}
+        `
+        
         const cmpFooter = `
-        @IF_FALSE_${availableLabelId}
-        0;JMP
-        (IF_TRUE_${availableLabelId})
-        @SP
-        M=M-1
-        M=M-1
-        A=M
-        M=-1
-        @END_IF_${availableLabelId}
-        0;JMP
-        (IF_FALSE_${availableLabelId})
-        @SP
-        M=M-1
-        M=M-1
-        A=M
-        M=0
-        (END_IF_${availableLabelId})
-        // set SP to just below the result of eq
-        @SP
-        M=M+1
+                @IF_FALSE_${availableLabelId}
+                0;JMP
+                (IF_TRUE_${availableLabelId})
+                @SP
+                A=M
+                M=-1
+                @END_IF_${availableLabelId}
+                0;JMP
+                (IF_FALSE_${availableLabelId})
+                @SP
+                A=M
+                M=0
+                (END_IF_${availableLabelId})
+                @SP
+                M=M+1
         `
             const  code = `
-            // ${command}
-            ${this.asmPart("arithmetic init")}
-            ${cmpHeader}
-            D;${asm[command]}
-            ${cmpFooter}
-            ${this.asmPart("arithmetic end")}
-            // ${command} end                
+                // ${command}
+                ${this.asmPart("arithmetic init")}
+                ${cmpHeader}
+                D;${asm[command]}
+                ${cmpFooter}             
             `
 
-            return code;
+            this.fileStream.write(code)
     }
     writePopPush(isTypePushOrPop, segment, index) {
         let code

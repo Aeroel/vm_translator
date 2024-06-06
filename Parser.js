@@ -4,7 +4,10 @@ const fs = require('node:fs');
 
 class Parser {
   commandTypesThatHaveArg2 = ['push', 'pop', 'call', 'function']
-  arithmeticCommands = ["add", "sub", "neg", "eq", "gt", "lt", "and", "or", "not"]
+  arithmeticCommands = ["add", "sub"]
+  negOrNotCommands = [ "neg", "not"]
+  andOrOrCommands = ["and", "or"]
+  comparisonCommands = ["eq", "gt", "lt",]
   commands = []
   currentCommandIndex = 0
   currentCommand = null
@@ -48,11 +51,22 @@ class Parser {
   }
   commandType() {
     const currentCommandParts = this.currentCommand.split(' ')
+    if(debug) {
+      console.log("currentCommandParts: " +currentCommandParts);
+    }
 
     if(this.arithmeticCommands.includes(currentCommandParts[0])) {
       return "arithmetic"
     }
-
+    if(this.andOrOrCommands.includes(currentCommandParts[0])) {
+      return "andOrOr"
+    }
+    if(this.negOrNotCommands.includes(currentCommandParts[0])) {
+      return "negOrNot"
+    }
+    if(this.comparisonCommands.includes(currentCommandParts[0])) {
+      return "comparison"
+    }
     if(currentCommandParts[0] === "push") {
       return "push"
     }
@@ -68,11 +82,11 @@ class Parser {
       console.log("Arg1: Command parts:  " + currentCommandParts);
       console.log("Comtype: " + this.commandType());
     }
-    if(this.commandType() === 'arithmetic') {
+    if(this.commandType() === 'arithmetic' || this.commandType() === "andOrOr" || this.commandType() === "negOrNot" || this.commandType() === "comparison") {
       
       // will return whatever the arithmetic command is (add, sub or whatever it may happen to be)
       return currentCommandParts[0]
-    } else {
+    } else if (this.commandType() === "push" || this.commandType() === "pop" ) {
       return currentCommandParts[1]
     }
   }

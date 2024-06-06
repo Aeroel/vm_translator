@@ -18,19 +18,38 @@ class InstanceOfVMTranslator {
             if (['push', 'pop', 'call', 'function'].includes(parser.commandType())) {
                 console.log("Arg2: " + parser.arg2());
             }
-            console.log("Does command have arg2?: "+parser.commandHasArg2());
-            if (parser.commandHasArg2()) {
-                if (['pop', 'push'].includes(parser.commandType())) {
-                    console.log("!!!!!");
-                    codeWriter.writePopPush(parser.commandType(), parser.arg1(), parser.arg2())
+            console.log("Does command have arg2?: " + parser.commandHasArg2());
+            if (['pop', 'push'].includes(parser.commandType())) {
+                if(debug) {
+                console.log("If: popOrPush");
                 }
-            } else {
-                    codeWriter.writeArithmetic(parser.arg1())
+                codeWriter.writePopPush(parser.commandType(), parser.arg1(), parser.arg2())
+            } else if (parser.commandType() === 'arithmetic') {
+                if(debug) {
+                    console.log("If: arithmetic");
+                    }
+                codeWriter.writeArithmetic(parser.arg1())
+            } else if (parser.commandType() === 'comparison') {
+                if(debug) {
+                    console.log("If: comparison");
+                    }
+                codeWriter.writeComparison(parser.arg1())
+            } else if (parser.commandType() === 'negOrNot') {
+                if(debug) {
+                    console.log("If: negOrNot");
+                    }
+                codeWriter.writeNegOrNot(parser.arg1());
+            } else if (parser.commandType() === 'andOrOr') {
+                if(debug) {
+                    console.log("If: andOrOr");
+                    }
+                codeWriter.writeAndOrOr(parser.arg1());
             }
+
             parser.advanceToNextCommand()
             commsProcessed++
         }
-        console.log("Commands while loop encountered: "+ commsProcessed);
+        console.log("Commands while loop encountered: " + commsProcessed);
         codeWriter.close()
     }
 }
