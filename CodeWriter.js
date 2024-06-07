@@ -20,17 +20,21 @@ class CodeWriter {
                 asmInstr = `
                 @SP
                 M=M-1
+                M=M-1
                 A=M
                 D=M
                 @SP
-                M=M-1
+                M=M+1
                 A=M
             `
             // now arg1 is avaialble in D and arg2 is in M
             break;
+
+            // arithmetiic end puts D into the arg1 space on the stack and positions SP below
             case 'arithmetic end':
                 asmInstr = `
                 @SP
+                M=M-1
                 A=M
                 M=D
                 @SP
@@ -69,16 +73,18 @@ class CodeWriter {
     writeAndOrOr(command) {
         const andOrOrAsm = {and: "&", or: "|"}
         const code = `
-        // and
+        // ${command}
         @SP
+        M=M-1
         M=M-1
         A=M
         D=M
         @SP
-        M=M-1
+        M=M+1
         A=M
         D=D${andOrOrAsm[command]}M
         @SP
+        M=M-1
         A=M
         M=D
         @SP
@@ -103,36 +109,37 @@ class CodeWriter {
         const availableLabelId = this.provideAvailableLabelId();
         const asm = {eq: `JEQ`, gt: `JGT`, lt: `JLT`}
 
-        const cmpHeader = `
+        const code = `
+                // ${command}
+                @SP
+                M=M-1
+                M=M-1
+                A=M
+                D=M
+                @SP
+                M=M+1
+                A=M
                 D=D-M
                 @IF_TRUE_${availableLabelId}
-        `
-        
-        const cmpFooter = `
+                D;${asm[command]}
                 @IF_FALSE_${availableLabelId}
                 0;JMP
                 (IF_TRUE_${availableLabelId})
                 @SP
+                M=M-1
                 A=M
                 M=-1
                 @END_IF_${availableLabelId}
                 0;JMP
                 (IF_FALSE_${availableLabelId})
                 @SP
+                M=M-1
                 A=M
                 M=0
                 (END_IF_${availableLabelId})
                 @SP
                 M=M+1
         `
-            const  code = `
-                // ${command}
-                ${this.asmPart("arithmetic init")}
-                ${cmpHeader}
-                D;${asm[command]}
-                ${cmpFooter}             
-            `
-
             this.fileStream.write(code)
     }
     writePopPush(isTypePushOrPop, segment, index) {
