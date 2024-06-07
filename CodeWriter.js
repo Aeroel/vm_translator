@@ -45,7 +45,7 @@ class CodeWriter {
         return asmInstr
     }
 
-    // command can be either "add", "sub", "neg", "eq", "gt", "lt", "and", "or" and "not"
+    // command can be either "add", "sub", "neg", "eq", "gt", "lt", "and", "or" and "not" 
     writeArithmetic(command) {
         console.log("Called writeArithmetic on: " + command);
         let code = null
