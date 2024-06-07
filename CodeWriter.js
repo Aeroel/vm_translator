@@ -110,35 +110,35 @@ class CodeWriter {
         const asm = {eq: `JEQ`, gt: `JGT`, lt: `JLT`}
 
         const code = `
-                // ${command}
-                @SP
-                M=M-1
-                M=M-1
-                A=M
-                D=M
-                @SP
-                M=M+1
-                A=M
-                D=D-M
-                @IF_TRUE_${availableLabelId}
-                D;${asm[command]}
-                @IF_FALSE_${availableLabelId}
-                0;JMP
-                (IF_TRUE_${availableLabelId})
-                @SP
-                M=M-1
-                A=M
-                M=-1
-                @END_IF_${availableLabelId}
-                0;JMP
-                (IF_FALSE_${availableLabelId})
-                @SP
-                M=M-1
-                A=M
-                M=0
-                (END_IF_${availableLabelId})
-                @SP
-                M=M+1
+        // ${command}
+        @SP
+        M=M-1
+        M=M-1
+        A=M
+        D=M
+        @SP
+        M=M+1
+        A=M
+        D=D-M
+        @IF_TRUE_${availableLabelId}
+        D;${asm[command]}
+        @IF_FALSE_${availableLabelId}
+        0;JMP
+        (IF_TRUE_${availableLabelId})
+        @SP
+        M=M-1
+        A=M
+        M=-1
+        @END_IF_${availableLabelId}
+        0;JMP
+        (IF_FALSE_${availableLabelId})
+        @SP
+        M=M-1
+        A=M
+        M=0
+        (END_IF_${availableLabelId})
+        @SP
+        M=M+1
         `
             this.fileStream.write(code)
     }
@@ -149,15 +149,14 @@ class CodeWriter {
                 throw new Error("pop constant i is an invalid command (popping constant)")
             }
             code = `
-                // ${isTypePushOrPop} ${segment} ${index}
-                @${index}
-                D=A
-                @SP
-                A=M
-                M=D
-                @SP
-                M=M+1
-
+        // ${isTypePushOrPop} ${segment} ${index}
+        @${index}
+        D=A
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
                 `
         }
         this.fileStream.write(code)
