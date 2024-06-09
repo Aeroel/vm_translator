@@ -185,12 +185,11 @@ class CodeWriter {
                 code = `
                 // pop static ${index}
                 @SP
+                M=M-1
                 A=M
                 D=M
                 @${this.getFileName()}.${index}
                 M=D
-                @SP
-                M=M-1
                 `
 
             break;
