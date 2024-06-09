@@ -175,7 +175,7 @@ class CodeWriter {
                 @SP
                 M=M+1
                 `
-            break;
+            break; 
             case "pop":
                 code = `
                 // pop ${segment} ${index}
