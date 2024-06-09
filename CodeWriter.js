@@ -160,14 +160,47 @@ class CodeWriter {
             code = this.codeForConstant(isTypePopOrPush, segment, index);
         } else if (segment === "static"){
             code = this.codeForStatic(isTypePopOrPush, segment, index);
+        } else if (segment === "pointer") { 
+            code = this.codeForPointer(isTypePopOrPush, segment, index);
         } else {
             code = this.codeForPopPushLocalOrArgumentOrThisOrThatOrTemp(isTypePopOrPush, segment, index);
         }
         this.fileStream.write(code)
     }
 
-    codeForStatic(isTypePopOrPush, segment, index) {
+    codeForPointer(isTypePopOrPush, segment, index) {
+        const indexToSegmentLabel = {0: "THIS", 1: "THAT"}
         let code;
+        switch(isTypePopOrPush) {
+            case "pop":
+                code = `
+                // pop pointer ${index} (${indexToSegmentLabel[index]})
+                @SP
+                M=M-1
+                A=M
+                D=M
+                @${indexToSegmentLabel[index]}
+                M=D
+                `
+            break;
+            case "push":
+                code = `
+                // push pointer ${index} (${indexToSegmentLabel[index]})
+                @${indexToSegmentLabel[index]}
+                D=M
+                @SP
+                A=M
+                M=D
+                @SP
+                M=M+1
+                `
+            break;
+        }
+        return code;
+    }
+
+    codeForStatic(isTypePopOrPush, segment, index) {
+        let code;   
         switch(isTypePopOrPush) {
             case "push":
                 code = `
