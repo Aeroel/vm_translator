@@ -4,6 +4,7 @@ class CodeWriter {
     availableLabelId = 0;
     fileStream = null;
     fileName = null;
+    setFileNameWasCalled = false
 
     constructor(outputFilePath) {
         // "w" flag overwrites the file, if it exists, effectively deleting it before writing into it
@@ -11,6 +12,13 @@ class CodeWriter {
     }
     setFileName(fileName) {
         this.fileName = fileName;
+        this.setFileNameWasCalled = true
+    }
+    getFileName() {
+        if(this.setFileNameWasCalled === false) {
+            throw new Error("Trying to get the file name, but file name was never set before")
+        }
+        return this.fileName;
     }
     provideAvailableLabelId() {
         const availableLabelId = this.availableLabelId
@@ -146,22 +154,57 @@ class CodeWriter {
         `
             this.fileStream.write(code)
     }
-    writePopPush(isTypePushOrPop, segment, index) {
+    writePopPush(isTypePopOrPush, segment, index) {
         let code
         if (segment === "constant") {
-            code = this.writeConstant(isTypePushOrPop, segment, index);
+            code = this.codeForConstant(isTypePopOrPush, segment, index);
+        } else if (segment === "static"){
+            code = this.codeForStatic(isTypePopOrPush, segment, index);
         } else {
-            code = this.writePopPushLocalOrArgumentOrThisOrThatOrTemp(isTypePushOrPop, segment, index);
+            code = this.codeForPopPushLocalOrArgumentOrThisOrThatOrTemp(isTypePopOrPush, segment, index);
         }
         this.fileStream.write(code)
     }
-    writePopPushLocalOrArgumentOrThisOrThatOrTemp(isTypePushOrPop, segment, index) {
+
+    codeForStatic(isTypePopOrPush, segment, index) {
+        let code;
+        switch(isTypePopOrPush) {
+            case "push":
+                code = `
+                // push static ${index}
+                @${this.getFileName()}.${index}
+                D=M
+                @SP
+                A=M
+                M=D
+                @SP
+                M=M+1
+                `
+            break;
+            case "pop":
+                code = `
+                // pop static ${index}
+                @SP
+                A=M
+                D=M
+                @${this.getFileName()}.${index}
+                M=D
+                @SP
+                M=M-1
+                `
+
+            break;
+        }
+        return code
+    }
+
+    codeForPopPushLocalOrArgumentOrThisOrThatOrTemp(isTypePopOrPush, segment, index) {
         const segments = {local: "LCL\nD=M", argument: "ARG\nD=M", this: "THIS\nD=M", that: "THAT\nD=M", temp: "5\nD=A"};
         const baseDPlus1 = `D=D+1
         `;
         const DPlus1 = baseDPlus1.repeat(index);
         let code;
-        switch(isTypePushOrPop) {
+        switch(isTypePopOrPush) {
             case "push":
                 code = `
                 // push ${segment} ${index}
@@ -183,27 +226,27 @@ class CodeWriter {
                 M=M-1
                 @${segments[segment]}
                 ${DPlus1}
-                @13
-                M=D // (13 acts as temporary addr) = segment + i
+                @addr
+                M=D
                 @SP
                 A=M
                 D=M
-                @13
+                @addr
                 A=M
                 M=D
-                @13
+                @addr
                 M=0
                 `
             break;
         }
         return code
     }
-    writeConstant(isTypePushOrPop, segment, index) {
-        if (isTypePushOrPop !== "push") {
+    codeForConstant(isTypePopOrPush, segment, index) {
+        if (isTypePopOrPush !== "push") {
             throw new Error("pop constant i is an invalid command (popping constant) because where is nothing to pop since i is a number, not an index of some storage in memory... or something like that")
         }
         const code = `
-    // ${isTypePushOrPop} ${segment} ${index}
+    // ${isTypePopOrPush} ${segment} ${index}
     @${index}
     D=A
     @SP
