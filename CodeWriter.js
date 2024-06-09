@@ -2,11 +2,15 @@ const fs = require("node:fs")
 
 class CodeWriter {
     availableLabelId = 0;
-    fileStream = null
+    fileStream = null;
+    fileName = null;
 
     constructor(outputFilePath) {
         // "w" flag overwrites the file, if it exists, effectively deleting it before writing into it
         this.fileStream = fs.createWriteStream(outputFilePath, { flags: 'w' });
+    }
+    setFileName(fileName) {
+        this.fileName = fileName;
     }
     provideAvailableLabelId() {
         const availableLabelId = this.availableLabelId
@@ -145,21 +149,77 @@ class CodeWriter {
     writePopPush(isTypePushOrPop, segment, index) {
         let code
         if (segment === "constant") {
-            if (isTypePushOrPop !== "push") {
-                throw new Error("pop constant i is an invalid command (popping constant)")
-            }
-            code = `
-        // ${isTypePushOrPop} ${segment} ${index}
-        @${index}
-        D=A
+            code = this.writeConstant(isTypePushOrPop, segment, index);
+        } else {
+            code = this.writeLocalOrArgumentOrThisOrThatOrTemp(isTypePushOrPop, segment, index);
+        }
+        this.fileStream.write(code)
+    }
+    writeLocalOrArgumentOrThisOrThatOrTemp(isTypePushOrPop, segment, index) {
+        const segmentToASMVarAddr = {local: "LCL", argument: "ARG", this: "THIS", that: "THAT", temp: "5"};
+        const DPlusOne = `D=D+1
+        `;
+        let timesToRepeat = index - 1;
+        if (timesToRepeat < 0) {
+            timesToRepeat = 0;
+        }
+        let howeverManyDPlus1sAreNeededForTheGivenIndex =  DPlusOne.repeat(timesToRepeat);
+        if(timesToRepeat > 0) {
+         howeverManyDPlus1sAreNeededForTheGivenIndex = `${howeverManyDPlus1sAreNeededForTheGivenIndex}D=D+1`;
+        }
+       let code;
+        if(isTypePushOrPop === "push") {
+        code = `
+        // push ${segment} ${index}
+        @${segmentToASMVarAddr[segment]}
+        D=M
+        ${howeverManyDPlus1sAreNeededForTheGivenIndex}
+        A=D 
+        D=M
         @SP
         A=M
         M=D
         @SP
         M=M+1
-                `
+        `
+       } else {
+        code = `
+        // pop ${segment} ${index}
+        @SP
+        M=M-1
+        A=M
+        D=M
+        @13
+        M=D
+        @${segmentToASMVarAddr[segment]}
+        D=M
+        ${howeverManyDPlus1sAreNeededForTheGivenIndex}
+        @14
+        M=D
+        @13
+        D=M
+        @14
+        A=M
+        M=D
+        `
+       }
+        return code
+    }
+    writeConstant(isTypePushOrPop, segment, index) {
+        if (isTypePushOrPop !== "push") {
+            throw new Error("pop constant i is an invalid command (popping constant) because where is nothing to pop since i is a number, not an index of some storage in memory... or something like that")
         }
-        this.fileStream.write(code)
+        const code = `
+    // ${isTypePushOrPop} ${segment} ${index}
+    @${index}
+    D=A
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    `
+    return code;
     }
     close() {
         this.fileStream.end(() => {

@@ -5,8 +5,11 @@ const pathModule = require('path')
 class InstanceOfVMTranslator {
     constructor(path) {
         const parser = new Parser(path)
-        let asmPath = replaceFileExtensionOfPathFromVMToAsm(path)
+        const asmPath = replaceFileExtensionOfPathFromVMToAsm(path)
+        const fileNameWithoutExtension = getFileNameWithoutExtension(path);
         const codeWriter = new CodeWriter(asmPath)
+        codeWriter.setFileName(fileNameWithoutExtension);
+
         if (debug) {
             console.log("Proceeding to go through VM commands");
         }
@@ -62,6 +65,12 @@ function replaceFileExtensionOfPathFromVMToAsm(filePath) {
     const asmFilePath = filePath.slice(0, -3) + '.asm'
 
     return asmFilePath
+}
+function getFileNameWithoutExtension(path) {
+    const parsedPath = pathModule.parse(path);
+    const fileNameWithoutExtension = parsedPath.name;
+
+    return fileNameWithoutExtension;
 }
 
 module.exports = InstanceOfVMTranslator
