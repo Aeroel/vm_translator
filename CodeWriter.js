@@ -151,58 +151,51 @@ class CodeWriter {
         if (segment === "constant") {
             code = this.writeConstant(isTypePushOrPop, segment, index);
         } else {
-            code = this.writeLocalOrArgumentOrThisOrThatOrTemp(isTypePushOrPop, segment, index);
+            code = this.writePopPushLocalOrArgumentOrThisOrThatOrTemp(isTypePushOrPop, segment, index);
         }
         this.fileStream.write(code)
     }
-    writeLocalOrArgumentOrThisOrThatOrTemp(isTypePushOrPop, segment, index) {
-        const segmentToASMVarAddr = {local: "LCL", argument: "ARG", this: "THIS", that: "THAT", temp: "5"};
-        const DPlusOne = `D=D+1
+    writePopPushLocalOrArgumentOrThisOrThatOrTemp(isTypePushOrPop, segment, index) {
+        const segments = {local: "LCL\nD=M", argument: "ARG\nD=M", this: "THIS\nD=M", that: "THAT\nD=M", temp: "5\nD=A"};
+        const baseDPlus1 = `D=D+1
         `;
-        let timesToRepeat = index - 1;
-        if (timesToRepeat < 0) {
-            timesToRepeat = 0;
+        const DPlus1 = baseDPlus1.repeat(index);
+        let code;
+        switch(isTypePushOrPop) {
+            case "push":
+                code = `
+                // push ${segment} ${index}
+                @${segments[segment]}
+                ${DPlus1}
+                A=D
+                D=M
+                @SP
+                A=M
+                M=D
+                @SP
+                M=M+1
+                `
+            break;
+            case "pop":
+                code = `
+                // pop ${segment} ${index}
+                @SP
+                M=M-1
+                @${segments[segment]}
+                ${DPlus1}
+                @13
+                M=D // (13 acts as temporary addr) = segment + i
+                @SP
+                A=M
+                D=M
+                @13
+                A=M
+                M=D
+                @13
+                M=0
+                `
+            break;
         }
-        let howeverManyDPlus1sAreNeededForTheGivenIndex =  DPlusOne.repeat(timesToRepeat);
-        if(timesToRepeat > 0) {
-         howeverManyDPlus1sAreNeededForTheGivenIndex = `${howeverManyDPlus1sAreNeededForTheGivenIndex}D=D+1`;
-        }
-       let code;
-        if(isTypePushOrPop === "push") {
-        code = `
-        // push ${segment} ${index}
-        @${segmentToASMVarAddr[segment]}
-        D=M
-        ${howeverManyDPlus1sAreNeededForTheGivenIndex}
-        A=D 
-        D=M
-        @SP
-        A=M
-        M=D
-        @SP
-        M=M+1
-        `
-       } else {
-        code = `
-        // pop ${segment} ${index}
-        @SP
-        M=M-1
-        A=M
-        D=M
-        @13
-        M=D
-        @${segmentToASMVarAddr[segment]}
-        D=M
-        ${howeverManyDPlus1sAreNeededForTheGivenIndex}
-        @14
-        M=D
-        @13
-        D=M
-        @14
-        A=M
-        M=D
-        `
-       }
         return code
     }
     writeConstant(isTypePushOrPop, segment, index) {
