@@ -157,7 +157,7 @@ class CodeWriter {
         M=M-1
         A=M
         D=M
-        @${label}
+        @${this.getFileName() + "$" + label}
         D;JGT
         `
         this.fileStream.write(code)
@@ -165,14 +165,14 @@ class CodeWriter {
     writeGoto(label) {
         let code = `
         // goto ${label}
-        @${label}
+        @${this.getFileName() + "$" + label}
         0;JMP`
         this.fileStream.write(code)
     }
     writeLabel(label) {
         let code = `
         // label ${label}
-        (${label})`
+        (${this.fileName() + "$" + label})`
         this.fileStream.write(code)
     }
     writePopPush(isTypePopOrPush, segment, index) {
