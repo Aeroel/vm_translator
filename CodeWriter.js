@@ -190,9 +190,50 @@ class CodeWriter {
     }
 
     writeCall(functionName, amountOfArgVars) {
+        let mEqMMinus1 = "M=M-1\n".repeat(amountOfArgVars);
+
+        
         let code = `
         // call ${functionName} ${amountOfArgVars}
-        
+        // save return address, then LCL, then ARG, then THIS, then THAT.
+        @SP 
+        D=M
+        A=M
+        M=D
+        //
+        // SP++, *SP=LCL, this basically saved the LCL after the return address...
+        @LCL
+        D=M
+        @SP
+        M=M+1
+        A=M
+        M=D
+
+        @ARG
+        D=M
+        @SP
+        M=M+1
+        A=M
+        M=D
+
+        @THIS
+        D=M
+        @SP
+        M=M+1
+        A=M
+        M=D
+
+        @THAT
+        D=M
+        @SP
+        M=M+1
+        A=M
+        M=D
+
+
+        ${mEqMMinus1}
+        D=M // the return address
+        @
         `
         this.fileStream.write(code)
     }
