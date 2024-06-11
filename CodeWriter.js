@@ -189,6 +189,29 @@ class CodeWriter {
         this.fileStream.write(code)
     }
 
+    writeCall(functionName, amountOfArgVars) {
+        let code = `
+        // call ${functionName} ${amountOfArgVars}
+        
+        `
+        this.fileStream.write(code)
+    }
+    writeFunction(functionName, amountOfLocalVars) {
+        let code = `
+        // function ${functionName} ${amountOfLocalVars}
+
+        `
+        this.fileStream.write(code)
+    }
+    writeReturn() {
+        let code = `
+        // return
+        `
+        this.fileStream.write(code)
+    }
+
+
+
     codeForPointer(isTypePopOrPush, segment, index) {
         const indexToSegmentLabel = { 0: "THIS", 1: "THAT" }
         let code;

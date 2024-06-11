@@ -49,6 +49,8 @@ function doStuffWithParserAndCodeWriter(parser, codeWriter) {
             codeWriter.writeGoto(parser.arg1());
         } else if (parser.commandType() === 'if') {
             codeWriter.writeIf(parser.arg1());
+        } else if (parser.commandType() === 'function') {
+            codeWriter.writeFunction();
         }
         parser.advanceToNextCommand()
     }
