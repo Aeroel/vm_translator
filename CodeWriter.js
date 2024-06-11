@@ -3,7 +3,7 @@ const fs = require("node:fs")
 class CodeWriter {
     availableLabelId = 0;
     fileStream = null;
-    fileName = null;
+    currentFileName = null;
     setFileNameWasCalled = false
 
     constructor(outputFilePath) {
@@ -11,14 +11,11 @@ class CodeWriter {
         this.fileStream = fs.createWriteStream(outputFilePath, { flags: 'w' });
     }
     setFileName(fileName) {
-        this.fileName = fileName;
-        this.setFileNameWasCalled = true
+        this.currentFileName = fileName;
+        this.fileStream.write("// " + fileName + "\n");
     }
     getFileName() {
-        if(this.setFileNameWasCalled === false) {
-            throw new Error("Trying to get the file name, but file name was never set before")
-        }
-        return this.fileName;
+        return this.currentFileName;
     }
     provideAvailableLabelId() {
         const availableLabelId = this.availableLabelId
@@ -39,8 +36,8 @@ class CodeWriter {
                 M=M+1
                 A=M
             `
-            // now arg1 is avaialble in D and arg2 is in M
-            break;
+                // now arg1 is avaialble in D and arg2 is in M
+                break;
 
             // arithmetiic end puts D into the arg1 space on the stack and positions SP below
             case 'arithmetic end':
@@ -52,7 +49,7 @@ class CodeWriter {
                 @SP
                 M=M+1
                 `
-            break
+                break
         }
         return asmInstr
     }
@@ -83,7 +80,7 @@ class CodeWriter {
         this.fileStream.write(code)
     }
     writeAndOrOr(command) {
-        const andOrOrAsm = {and: "&", or: "|"}
+        const andOrOrAsm = { and: "&", or: "|" }
         const code = `
         // ${command}
         @SP
@@ -105,8 +102,8 @@ class CodeWriter {
         this.fileStream.write(code)
     }
     writeNegOrNot(command) {
-        const negOrNotAsm = {neg: "-", not: "!"}
-        const code= `
+        const negOrNotAsm = { neg: "-", not: "!" }
+        const code = `
         // ${command}
         @SP
         M=M-1
@@ -119,7 +116,7 @@ class CodeWriter {
     }
     writeComparison(command) {
         const availableLabelId = this.provideAvailableLabelId();
-        const asm = {eq: `JEQ`, gt: `JGT`, lt: `JLT`}
+        const asm = { eq: `JEQ`, gt: `JGT`, lt: `JLT` }
 
         const code = `
         // ${command}
@@ -152,15 +149,40 @@ class CodeWriter {
         @SP
         M=M+1
         `
-            this.fileStream.write(code)
+        this.fileStream.write(code)
+    }
+    writeIf(label) {
+        let code = `
+        // if-goto ${label}
+        @SP
+        M=M-1
+        A=M
+        D=M
+        @${label}
+        D;JGT
+        `
+        this.fileStream.write(code)
+    }
+    writeGoto(label) {
+        let code = `
+        // goto ${label}
+        @${label}
+        0;JMP`
+        this.fileStream.write(code)
+    }
+    writeLabel(label) {
+        let code = `
+        // label ${label}
+        (${label})`
+        this.fileStream.write(code)
     }
     writePopPush(isTypePopOrPush, segment, index) {
         let code
         if (segment === "constant") {
             code = this.codeForConstant(isTypePopOrPush, segment, index);
-        } else if (segment === "static"){
+        } else if (segment === "static") {
             code = this.codeForStatic(isTypePopOrPush, segment, index);
-        } else if (segment === "pointer") { 
+        } else if (segment === "pointer") {
             code = this.codeForPointer(isTypePopOrPush, segment, index);
         } else {
             code = this.codeForPopPushLocalOrArgumentOrThisOrThatOrTemp(isTypePopOrPush, segment, index);
@@ -169,9 +191,9 @@ class CodeWriter {
     }
 
     codeForPointer(isTypePopOrPush, segment, index) {
-        const indexToSegmentLabel = {0: "THIS", 1: "THAT"}
+        const indexToSegmentLabel = { 0: "THIS", 1: "THAT" }
         let code;
-        switch(isTypePopOrPush) {
+        switch (isTypePopOrPush) {
             case "pop":
                 code = `
                 // pop pointer ${index} (${indexToSegmentLabel[index]})
@@ -182,7 +204,7 @@ class CodeWriter {
                 @${indexToSegmentLabel[index]}
                 M=D
                 `
-            break;
+                break;
             case "push":
                 code = `
                 // push pointer ${index} (${indexToSegmentLabel[index]})
@@ -194,14 +216,14 @@ class CodeWriter {
                 @SP
                 M=M+1
                 `
-            break;
+                break;
         }
         return code;
     }
 
     codeForStatic(isTypePopOrPush, segment, index) {
-        let code;   
-        switch(isTypePopOrPush) {
+        let code;
+        switch (isTypePopOrPush) {
             case "push":
                 code = `
                 // push static ${index}
@@ -213,7 +235,7 @@ class CodeWriter {
                 @SP
                 M=M+1
                 `
-            break;
+                break;
             case "pop":
                 code = `
                 // pop static ${index}
@@ -225,18 +247,18 @@ class CodeWriter {
                 M=D
                 `
 
-            break;
+                break;
         }
         return code
     }
 
     codeForPopPushLocalOrArgumentOrThisOrThatOrTemp(isTypePopOrPush, segment, index) {
-        const segments = {local: "LCL\nD=M", argument: "ARG\nD=M", this: "THIS\nD=M", that: "THAT\nD=M", temp: "5\nD=A"};
+        const segments = { local: "LCL\nD=M", argument: "ARG\nD=M", this: "THIS\nD=M", that: "THAT\nD=M", temp: "5\nD=A" };
         const baseDPlus1 = `D=D+1
         `;
         const DPlus1 = baseDPlus1.repeat(index);
         let code;
-        switch(isTypePopOrPush) {
+        switch (isTypePopOrPush) {
             case "push":
                 code = `
                 // push ${segment} ${index}
@@ -250,7 +272,7 @@ class CodeWriter {
                 @SP
                 M=M+1
                 `
-            break; 
+                break;
             case "pop":
                 code = `
                 // pop ${segment} ${index}
@@ -258,18 +280,18 @@ class CodeWriter {
                 M=M-1
                 @${segments[segment]}
                 ${DPlus1}
-                @addr
+                @13
                 M=D
                 @SP
                 A=M
                 D=M
-                @addr
+                @13
                 A=M
                 M=D
-                @addr
+                @13
                 M=0
                 `
-            break; 
+                break;
         }
         return code
     }
@@ -287,7 +309,7 @@ class CodeWriter {
     @SP
     M=M+1
     `
-    return code;
+        return code;
     }
     close() {
         this.fileStream.end(() => {

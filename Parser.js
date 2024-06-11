@@ -1,4 +1,3 @@
-const { Console } = require('node:console');
 const VMCleaner = require('./VMCleaner')
 const fs = require('node:fs');
 
@@ -70,9 +69,29 @@ class Parser {
     if(currentCommandParts[0] === "push") {
       return "push"
     }
-
     if(currentCommandParts[0] === "pop") {
       return "pop"
+    }
+    if(currentCommandParts[0] === "label") {
+      return "label"
+    }
+    if(currentCommandParts[0] === "goto") {
+      return "goto"
+    }
+    if(currentCommandParts[0] === "if-goto") {
+      return "if"
+    }
+    if(currentCommandParts[0] === "call") {
+      return "call"
+    }
+    if(currentCommandParts[0] === "function") {
+      return "function"
+    }    
+    if(currentCommandParts[0] === "call") {
+      return "goto"
+    }
+    if(currentCommandParts[0] === "return") {
+      return "return"
     }
 
   }
@@ -82,11 +101,14 @@ class Parser {
       console.log("Arg1: Command parts:  " + currentCommandParts);
       console.log("Comtype: " + this.commandType());
     }
+    if(this.commandType() === 'return') {
+      throw new Error("Parser.arg1() called on command of type \"return\"")
+    }
     if(this.commandType() === 'arithmetic' || this.commandType() === "andOrOr" || this.commandType() === "negOrNot" || this.commandType() === "comparison") {
       
       // will return whatever the arithmetic command is (add, sub or whatever it may happen to be)
       return currentCommandParts[0]
-    } else if (this.commandType() === "push" || this.commandType() === "pop" ) {
+    } else {
       return currentCommandParts[1]
     }
   }
