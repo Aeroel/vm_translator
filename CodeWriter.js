@@ -4,7 +4,6 @@ class CodeWriter {
     availableLabelId = 0;
     fileStream = null;
     currentFileName = null;
-    setFileNameWasCalled = false
 
     constructor(outputFilePath) {
         // "w" flag overwrites the file, if it exists, effectively deleting it before writing into it
@@ -54,7 +53,7 @@ class CodeWriter {
         return asmInstr
     }
 
-    // command can be either "add", "sub", "neg", "eq", "gt", "lt", "and", "or" and "not" 
+    // command can be either "add" or "sub"
     writeArithmetic(command) {
         console.log("Called writeArithmetic on: " + command);
         let code = null

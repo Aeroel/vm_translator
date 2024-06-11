@@ -10,6 +10,7 @@ function main() {
     global.debug = true
     const theFSPath = argv[2]
     const isFileOrFolder = determineIfPathIsFileOrFolder(theFSPath)
+
     let VMFiles = []
     let outputFilePath = null
     if (isFileOrFolder === 'file') {
@@ -17,7 +18,7 @@ function main() {
         VMFiles.push({ path: theFSPath, fileNameNoExt: path.basename(theFSPath, '.vm') })
     } else if (isFileOrFolder === 'folder') {
         outputFilePath = theFolderAsmInsideTheFolder(theFSPath)
-        VMFiles = getFilePathsOfAllVMFilesInAFolder(theFSPath)
+        VMFiles = getPathAndNoExtNameOfAllVMFilesInAFolder(theFSPath)
     }
     const codeWriter = new CodeWriter(outputFilePath);
     VMFiles.forEach(VMFile => {
@@ -32,36 +33,15 @@ function main() {
 
 function doStuffWithParserAndCodeWriter(parser, codeWriter) {
     while (parser.hasMoreCommandsLeftToProcess()) {
-        console.log("Arg1: " + parser.arg1());
-        if (['push', 'pop', 'call', 'function'].includes(parser.commandType())) {
-            console.log("Arg2: " + parser.arg2());
-        }
-        console.log("Does command have arg2?: " + parser.commandHasArg2());
-
-        if (['pop', 'push'].includes(parser.commandType())) {
-            if (debug) {
-                console.log("If: popOrPush");
-            }
+       if (['pop', 'push'].includes(parser.commandType())) {
             codeWriter.writePopPush(parser.commandType(), parser.arg1(), parser.arg2())
         } else if (parser.commandType() === 'arithmetic') {
-            if (debug) {
-                console.log("If: arithmetic");
-            }
             codeWriter.writeArithmetic(parser.arg1())
         } else if (parser.commandType() === 'comparison') {
-            if (debug) {
-                console.log("If: comparison");
-            }
             codeWriter.writeComparison(parser.arg1())
         } else if (parser.commandType() === 'negOrNot') {
-            if (debug) {
-                console.log("If: negOrNot");
-            }
             codeWriter.writeNegOrNot(parser.arg1());
         } else if (parser.commandType() === 'andOrOr') {
-            if (debug) {
-                console.log("If: andOrOr");
-            }
             codeWriter.writeAndOrOr(parser.arg1());
         } else if (parser.commandType() === 'label') {
             codeWriter.writeLabel(parser.arg1());
@@ -70,8 +50,6 @@ function doStuffWithParserAndCodeWriter(parser, codeWriter) {
         } else if (parser.commandType() === 'if') {
             codeWriter.writeIf(parser.arg1());
         }
-
-
         parser.advanceToNextCommand()
     }
 }
@@ -90,7 +68,7 @@ function determineIfPathIsFileOrFolder(inputPath) {
     }
 }
 
-function getFilePathsOfAllVMFilesInAFolder(folderPath) {
+function getPathAndNoExtNameOfAllVMFilesInAFolder(folderPath) {
     try {
         const result = [];
         const files = fs.readdirSync(folderPath);
