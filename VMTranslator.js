@@ -50,7 +50,11 @@ function doStuffWithParserAndCodeWriter(parser, codeWriter) {
         } else if (parser.commandType() === 'if') {
             codeWriter.writeIf(parser.arg1());
         } else if (parser.commandType() === 'function') {
-            codeWriter.writeFunction();
+            codeWriter.writeFunction(parser.arg1(), parser.arg2());
+        } else if (parser.commandType() === 'call') {
+            codeWriter.writeCall(parser.arg1(), parser.arg2());
+        } else if (parser.commandType() === 'return') {
+            codeWriter.writeReturn();
         }
         parser.advanceToNextCommand()
     }

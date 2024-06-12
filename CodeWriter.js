@@ -249,19 +249,21 @@ class CodeWriter {
             localSetupCode = ``
         } else if (amountOfLocalVars === 1) {
             localSetupCode = `
-            A=M
+            A=D
             M=0
-            @LCL
-            M=M+1
             `
         } else if (amountOfLocalVars > 1) {
             localSetupCode = `
-            A=M
+            A=D
             M=0
-            @LCL
-            M=M+1
-            `.repeat(amountOfLocalVars)
-        }
+            D=D+1
+            `
+            localSetupCode = localSetupCode + `
+            A=D
+            M=0
+            D=D+1
+            `.repeat(amountOfLocalVars-1)
+        }    
         const SPSetupCode = `
         M=M+1
         `.repeat(amountOfLocalVars)
@@ -269,6 +271,7 @@ class CodeWriter {
         // function ${functionName} ${amountOfLocalVars}
         (${functionName})
         @LCL
+        D=M
         ${localSetupCode}
         @SP
         ${SPSetupCode}
@@ -278,75 +281,78 @@ class CodeWriter {
     writeReturn() {
         let code = `
         // return
-        // get the return address and put latest stack push value into it
         
-        // get return address and store it in D
+        // FRAME = LCL
         @LCL 
-        D=M-1
-        D=D-1
-        D=D-1
-        D=D-1
-        D=D-1
-        A=D
         D=M
-
-        // store value of D in RAM[13]
-        @13 // temp storage? Is this a valid usage?
+        @FRAME
         M=D
 
-        // get the value just before the return and send in into *13
+        // RET_ADDR = *(FRAME-5)
+        @FRAME
+        D=M
+        D=M-1
+        D=M-1
+        D=M-1
+        D=M-1
+        D=M-1
+        A=D
+        D=M
+        @RET_ADDR
+        M=D
+
+        // *ARG = value pushed onto the stack before the return command
         @SP
         M=M-1
         A=M
         D=M
-        @13
-        A=M
-        M=D
-
-        // restore LCL
-        @LCL
-        D=M-1
-        D=D-1
-        D=D-1
-        D=D-1
-        A=D
-        D=M
-        @LCL
-        M=D
-
-        // restore ARG
-        @LCL
-        D=M-1
-        D=D-1
-        D=D-1
-        A=D
-        D=M
         @ARG
+        A=M
         M=D
 
-        // restore THIS
-        @LCL
-        M=M-1
-        M=M-1
-        A=M
+        // SP = ARG+1
+        @ARG
         D=M
+        D=D+1
+        @SP
+        M=D
+
+        // THAT = *(FRAME-1)
+        @FRAME
+        D=M
+        D=D-1
+        @THAT
+        M=D
+ 
+        // THIS = *(FRAME-2)
+        @FRAME
+        D=M
+        D=D-1
+        D=D-1
         @THIS
         M=D
 
-        // restore THAT
-        @LC
-        M=M-1
-        A=M
+        // ARG = *(FRAME-3)
+        @FRAME
         D=M
-        @THAT
-        M=D   
-        
-        // finally, put SP at returnAddr+1, and this is completed
-        @13
-        D=M
-        @SP
+        D=D-1
+        D=D-1
+        D=D-1
+        @ARG
         M=D
-        M=M+1
+
+        // LCL = *(FRAME-4)
+        @FRAME
+        D=M
+        D=D-1
+        D=D-1
+        D=D-1
+        D=D-1
+        @LCL
+        M=D
+
+        @RET_ADDR
+        0;JMP
         `
         this.fileStream.write(code)
     }
