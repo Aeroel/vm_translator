@@ -172,7 +172,7 @@ class CodeWriter {
     writeLabel(label) {
         let code = `
         // label ${label}
-        (${this.fileName() + "$" + label})`
+        (${this.getFileName() + "$" + label})`
         this.fileStream.write(code)
     }
     writePopPush(isTypePopOrPush, segment, index) {
@@ -190,169 +190,18 @@ class CodeWriter {
     }
 
     writeCall(functionName, amountOfArgVars) {
-        let mEqMMinus1 = "M=M-1\n".repeat(amountOfArgVars);
-        let mEqMPlus1 = "M=M+1\n".repeat(amountOfArgVars);
-
-        
         let code = `
-        // call ${functionName} ${amountOfArgVars}
-        // Store the return address after the passed arguments
-        @SP
-        ${mEqMMinus1}
-        D=M
-        ${mEqMPlus1}
-        A=M
-        M=D
-        // SP++, *SP=LCL, this basically saved the LCL after the return address...
-        @LCL
-        D=M
-        @SP
-        M=M+1
-        A=M
-        M=D
-
-        @ARG
-        D=M
-        @SP
-        M=M+1
-        A=M
-        M=D
-
-        @THIS
-        D=M
-        @SP
-        M=M+1
-        A=M
-        M=D
-
-        @THAT
-        D=M
-        @SP
-        M=M+1
-        A=M
-        M=D
-
-        @SP
-        M=M+1
-        D=M
-        @LCL
-        M=D
-
-        @${functionName}
-        0;JMP
+        
         `
         this.fileStream.write(code)
     }
     writeFunction(functionName, amountOfLocalVars) {
-        let localSetupCode
-        if(amountOfLocalVars === 0) {
-            localSetupCode = ``
-        } else if (amountOfLocalVars === 1) {
-            localSetupCode = `
-            A=D
-            M=0
-            `
-        } else if (amountOfLocalVars > 1) {
-            localSetupCode = `
-            A=D
-            M=0
-            D=D+1
-            `
-            localSetupCode = localSetupCode + `
-            A=D
-            M=0
-            D=D+1
-            `.repeat(amountOfLocalVars-1)
-        }    
-        const SPSetupCode = `
-        M=M+1
-        `.repeat(amountOfLocalVars)
         let code = `
-        // function ${functionName} ${amountOfLocalVars}
-        (${functionName})
-        @LCL
-        D=M
-        ${localSetupCode}
-        @SP
-        ${SPSetupCode}
         `
         this.fileStream.write(code)
     }
     writeReturn() {
         let code = `
-        // return
-        
-        // FRAME = LCL
-        @LCL 
-        D=M
-        @FRAME
-        M=D
-
-        // RET_ADDR = *(FRAME-5)
-        @FRAME
-        D=M
-        D=M-1
-        D=M-1
-        D=M-1
-        D=M-1
-        D=M-1
-        A=D
-        D=M
-        @RET_ADDR
-        M=D
-
-        // *ARG = value pushed onto the stack before the return command
-        @SP
-        M=M-1
-        A=M
-        D=M
-        @ARG
-        A=M
-        M=D
-
-        // SP = ARG+1
-        @ARG
-        D=M
-        D=D+1
-        @SP
-        M=D
-
-        // THAT = *(FRAME-1)
-        @FRAME
-        D=M
-        D=D-1
-        @THAT
-        M=D
- 
-        // THIS = *(FRAME-2)
-        @FRAME
-        D=M
-        D=D-1
-        D=D-1
-        @THIS
-        M=D
-
-        // ARG = *(FRAME-3)
-        @FRAME
-        D=M
-        D=D-1
-        D=D-1
-        D=D-1
-        @ARG
-        M=D
-
-        // LCL = *(FRAME-4)
-        @FRAME
-        D=M
-        D=D-1
-        D=D-1
-        D=D-1
-        D=D-1
-        @LCL
-        M=D
-
-        @RET_ADDR
-        0;JMP
         `
         this.fileStream.write(code)
     }
