@@ -191,16 +191,18 @@ class CodeWriter {
 
     writeCall(functionName, amountOfArgVars) {
         let mEqMMinus1 = "M=M-1\n".repeat(amountOfArgVars);
+        let mEqMPlus1 = "M=M+1\n".repeat(amountOfArgVars);
 
         
         let code = `
         // call ${functionName} ${amountOfArgVars}
-        // save return address, then LCL, then ARG, then THIS, then THAT.
-        @SP 
+        // Store the return address after the passed arguments
+        @SP
+        ${mEqMMinus1}
         D=M
+        ${mEqMPlus1}
         A=M
         M=D
-        //
         // SP++, *SP=LCL, this basically saved the LCL after the return address...
         @LCL
         D=M
@@ -230,23 +232,121 @@ class CodeWriter {
         A=M
         M=D
 
+        @SP
+        M=M+1
+        D=M
+        @LCL
+        M=D
 
-        ${mEqMMinus1}
-        D=M // the return address
-        @
+        @${functionName}
+        0;JMP
         `
         this.fileStream.write(code)
     }
     writeFunction(functionName, amountOfLocalVars) {
+        let localSetupCode
+        if(amountOfLocalVars === 0) {
+            localSetupCode = ``
+        } else if (amountOfLocalVars === 1) {
+            localSetupCode = `
+            A=M
+            M=0
+            @LCL
+            M=M+1
+            `
+        } else if (amountOfLocalVars > 1) {
+            localSetupCode = `
+            A=M
+            M=0
+            @LCL
+            M=M+1
+            `.repeat(amountOfLocalVars)
+        }
+        const SPSetupCode = `
+        M=M+1
+        `.repeat(amountOfLocalVars)
         let code = `
         // function ${functionName} ${amountOfLocalVars}
-
+        (${functionName})
+        @LCL
+        ${localSetupCode}
+        @SP
+        ${SPSetupCode}
         `
         this.fileStream.write(code)
     }
     writeReturn() {
         let code = `
         // return
+        // get the return address and put latest stack push value into it
+        
+        // get return address and store it in D
+        @LCL 
+        D=M-1
+        D=D-1
+        D=D-1
+        D=D-1
+        D=D-1
+        A=D
+        D=M
+
+        // store value of D in RAM[13]
+        @13 // temp storage? Is this a valid usage?
+        M=D
+
+        // get the value just before the return and send in into *13
+        @SP
+        M=M-1
+        A=M
+        D=M
+        @13
+        A=M
+        M=D
+
+        // restore LCL
+        @LCL
+        D=M-1
+        D=D-1
+        D=D-1
+        D=D-1
+        A=D
+        D=M
+        @LCL
+        M=D
+
+        // restore ARG
+        @LCL
+        D=M-1
+        D=D-1
+        D=D-1
+        A=D
+        D=M
+        @ARG
+        M=D
+
+        // restore THIS
+        @LCL
+        M=M-1
+        M=M-1
+        A=M
+        D=M
+        @THIS
+        M=D
+
+        // restore THAT
+        @LC
+        M=M-1
+        A=M
+        D=M
+        @THAT
+        M=D   
+        
+        // finally, put SP at returnAddr+1, and this is completed
+        @13
+        D=M
+        @SP
+        M=D
+        M=M+1
         `
         this.fileStream.write(code)
     }
