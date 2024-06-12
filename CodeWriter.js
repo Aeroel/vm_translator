@@ -1,6 +1,7 @@
 const fs = require("node:fs")
 
 class CodeWriter {
+    nextAvailableIndices = []
     availableLabelId = 0;
     fileStream = null;
     currentFileName = null;
@@ -16,24 +17,28 @@ class CodeWriter {
     getFileName() {
         return this.currentFileName;
     }
-    provideAvailableLabelId() {
-        const availableLabelId = this.availableLabelId
-        this.availableLabelId++
-        return availableLabelId;
+    provideAvailableIndex(name) {
+
+        if (!this.nextAvailableIndices.hasOwnProperty(name)) {
+            this.nextAvailableIndices[name] = 0;
+        } else {
+            this.nextAvailableIndices[name] += 1;
+        }
+        return this.nextAvailableIndices[name];
     }
     asmPart(name) {
         let asmInstr = null
         switch (name) {
             case "arithmetic init":
                 asmInstr = `
-                @SP
-                M=M-1
-                M=M-1
-                A=M
-                D=M
-                @SP
-                M=M+1
-                A=M
+        @SP
+        M=M-1
+        M=M-1
+        A=M
+        D=M
+        @SP
+        M=M+1
+        A=M
             `
                 // now arg1 is avaialble in D and arg2 is in M
                 break;
@@ -41,12 +46,12 @@ class CodeWriter {
             // arithmetiic end puts D into the arg1 space on the stack and positions SP below
             case 'arithmetic end':
                 asmInstr = `
-                @SP
-                M=M-1
-                A=M
-                M=D
-                @SP
-                M=M+1
+        @SP
+        M=M-1
+        A=M
+        M=D
+        @SP
+        M=M+1
                 `
                 break
         }
@@ -60,18 +65,18 @@ class CodeWriter {
         switch (command) {
             case "add":
                 code = `
-                // add
-                ${this.asmPart("arithmetic init")}
-                D=D+M
-                ${this.asmPart("arithmetic end")}
+        // add
+        ${this.asmPart("arithmetic init")}
+        D=D+M
+        ${this.asmPart("arithmetic end")}
                 `
                 break
             case "sub":
                 code = `
-                // sub
-                ${this.asmPart("arithmetic init")}
-                D=D-M
-                ${this.asmPart("arithmetic end")}
+        // sub
+        ${this.asmPart("arithmetic init")}
+        D=D-M
+        ${this.asmPart("arithmetic end")}
                 
     `
                 break;
@@ -114,7 +119,7 @@ class CodeWriter {
         this.fileStream.write(code)
     }
     writeComparison(command) {
-        const availableLabelId = this.provideAvailableLabelId();
+        const availableLabelId = this.provideAvailableIndex("label");
         const asm = { eq: `JEQ`, gt: `JGT`, lt: `JLT` }
 
         const code = `
@@ -172,7 +177,7 @@ class CodeWriter {
     writeLabel(label) {
         let code = `
         // label ${label}
-        (${this.getFileName() + "$" + label})`
+        (${this.getFileName() + ":" + label})`
         this.fileStream.write(code)
     }
     writePopPush(isTypePopOrPush, segment, index) {
@@ -190,18 +195,176 @@ class CodeWriter {
     }
 
     writeCall(functionName, amountOfArgVars) {
+        const returnIndex = this.provideAvailableIndex(functionName)
+        const returnLabel = functionName + "$ret." + returnIndex
+        const fivePlusAmOfArgs = amountOfArgVars + 5
         let code = `
+        // call ${functionName} ${amountOfArgVars}
+        // put returnAddress, increase SP by 1
+        @${returnLabel}
+        D=A
+        @SP
+        A=M
+        M=D
+
+        @SP
+        M=M+1
+
+        // put LCL, increase SP by 1
+        @LCL
+        D=M
+        @SP
+        A=M
+        M=D
         
+        @SP
+        M=M+1
+
+        // put ARG, increase SP by 1
+        @ARG
+        D=M
+        @SP
+        A=M
+        M=D
+        
+        @SP
+        M=M+1
+                
+        // put THIS, increase SP by 1
+        @THIS
+        D=M
+        @SP
+        A=M
+        M=D
+        
+        @SP
+        M=M+1
+
+        // put THAT, increase SP by 1
+        @THAT
+        D=M
+        @SP
+        A=M
+        M=D
+        
+        @SP
+        M=M+1
+
+        // reposition ARG to the first passed argument
+        @${fivePlusAmOfArgs}
+        D=A
+        @SP
+        D=M-D
+        @ARG
+        M=D
+
+        // reposition, LCL = SP
+        @SP
+        D=M
+        @LCL
+        M=D
+
+        @${functionName}
+        0;JMP
+        // the return will go here
+        (${returnLabel})
         `
         this.fileStream.write(code)
     }
     writeFunction(functionName, amountOfLocalVars) {
+        const pushInitLocalVarsToZero = `
+        @SP
+        A=M
+        M=0
+        @SP
+        M=M+1
+        `.repeat(amountOfLocalVars)
         let code = `
+        // function ${functionName} ${amountOfLocalVars}
+        (${functionName})
+        ${pushInitLocalVarsToZero}
         `
         this.fileStream.write(code)
     }
+
+    putIntoDAddressOfFrameMinus(num) {
+        const codeMinusZero = `
+        @FRAME
+        D=M
+    `
+    const codeMinusOne = `
+        @FRAME
+        A=A-1
+        D=M
+        `
+    if (num === 0) {
+        return codeMinusZero
+    } else if(num === 1) {
+        return  codeMinusOne
+    }
+    
+    const codeMinusN = `
+        @FRAME
+    ` +
+    `
+        A=A-1
+        `.repeat(num) + 
+    `
+        D=M
+        `
+     return codeMinusN
+    }
     writeReturn() {
+      
         let code = `
+        // return
+        // FRAME = LCL
+        @LCL
+        D=M
+        @FRAME
+        M=D
+
+        // RET = * (FRAME - 5)
+        ${this.putIntoDAddressOfFrameMinus(5)}
+        @RET
+        M=D
+
+        // *ARG = pop()
+        @SP
+        M=M-1
+        A=M
+        D=M
+        @ARG
+        A=M
+        M=D
+
+        // SP = ARG+1
+        @ARG
+        D=M
+        @SP
+        M=D+1
+
+        // THAT=*(FRAME-1) restore THAT of calling function
+        ${this.putIntoDAddressOfFrameMinus(1)}
+        @THAT
+        M=D
+
+        // THIS=*(FRAME-2) restore THIS of calling function
+        ${this.putIntoDAddressOfFrameMinus(2)}
+        @THIS
+        M=D
+        // ARG=*(FRAME-3) restore ARG of calling function
+        ${this.putIntoDAddressOfFrameMinus(3)}
+        @ARG
+        M=D
+        // LCL=*(FRAME-4) restore LCL of calling function
+        ${this.putIntoDAddressOfFrameMinus(4)}
+        @LCL
+        M=D
+
+        // goto RET  GOTO the return-address
+        @RET
+        0;JMP
         `
         this.fileStream.write(code)
     }
@@ -214,25 +377,25 @@ class CodeWriter {
         switch (isTypePopOrPush) {
             case "pop":
                 code = `
-                // pop pointer ${index} (${indexToSegmentLabel[index]})
-                @SP
-                M=M-1
-                A=M
-                D=M
-                @${indexToSegmentLabel[index]}
-                M=D
+        // pop pointer ${index} (${indexToSegmentLabel[index]})
+        @SP
+        M=M-1
+        A=M
+        D=M
+        @${indexToSegmentLabel[index]}
+        M=D
                 `
                 break;
             case "push":
                 code = `
-                // push pointer ${index} (${indexToSegmentLabel[index]})
-                @${indexToSegmentLabel[index]}
-                D=M
-                @SP
-                A=M
-                M=D
-                @SP
-                M=M+1
+        // push pointer ${index} (${indexToSegmentLabel[index]})
+        @${indexToSegmentLabel[index]}
+        D=M
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
                 `
                 break;
         }
@@ -244,25 +407,25 @@ class CodeWriter {
         switch (isTypePopOrPush) {
             case "push":
                 code = `
-                // push static ${index}
-                @${this.getFileName()}.${index}
-                D=M
-                @SP
-                A=M
-                M=D
-                @SP
-                M=M+1
+        // push static ${index}
+        @${this.getFileName()}.${index}
+        D=M
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
                 `
                 break;
             case "pop":
                 code = `
-                // pop static ${index}
-                @SP
-                M=M-1
-                A=M
-                D=M
-                @${this.getFileName()}.${index}
-                M=D
+        // pop static ${index}
+        @SP
+        M=M-1
+        A=M
+        D=M
+        @${this.getFileName()}.${index}
+        M=D
                 `
 
                 break;
@@ -271,43 +434,53 @@ class CodeWriter {
     }
 
     codeForPopPushLocalOrArgumentOrThisOrThatOrTemp(isTypePopOrPush, segment, index) {
-        const segments = { local: "LCL\nD=M", argument: "ARG\nD=M", this: "THIS\nD=M", that: "THAT\nD=M", temp: "5\nD=A" };
-        const baseDPlus1 = `D=D+1
+        const segments = { local: `LCL
+        D=M
+        `, argument: `ARG
+        D=M
+        `, this: `THIS
+        D=M`, that: `THAT
+        D=M
+        `, temp: `5
+        D=A
+        ` };
+        const baseDPlus1 = `
+        D=D+1
         `;
         const DPlus1 = baseDPlus1.repeat(index);
         let code;
         switch (isTypePopOrPush) {
             case "push":
                 code = `
-                // push ${segment} ${index}
-                @${segments[segment]}
-                ${DPlus1}
-                A=D
-                D=M
-                @SP
-                A=M
-                M=D
-                @SP
-                M=M+1
+        // push ${segment} ${index}
+        @${segments[segment]}
+        ${DPlus1}
+        A=D
+        D=M
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
                 `
                 break;
             case "pop":
                 code = `
-                // pop ${segment} ${index}
-                @SP
-                M=M-1
-                @${segments[segment]}
-                ${DPlus1}
-                @13
-                M=D
-                @SP
-                A=M
-                D=M
-                @13
-                A=M
-                M=D
-                @13
-                M=0
+        // pop ${segment} ${index}
+        @SP
+        M=M-1
+        @${segments[segment]}
+        ${DPlus1}
+        @13
+        M=D
+        @SP
+        A=M
+        D=M
+        @13
+        A=M
+        M=D
+        @13
+        M=0
                 `
                 break;
         }
@@ -318,14 +491,14 @@ class CodeWriter {
             throw new Error("pop constant i is an invalid command (popping constant) because where is nothing to pop since i is a number, not an index of some storage in memory... or something like that")
         }
         const code = `
-    // ${isTypePopOrPush} ${segment} ${index}
-    @${index}
-    D=A
-    @SP
-    A=M
-    M=D
-    @SP
-    M=M+1
+        // ${isTypePopOrPush} ${segment} ${index}
+        @${index}
+        D=A
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
     `
         return code;
     }
