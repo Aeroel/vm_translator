@@ -292,30 +292,30 @@ class CodeWriter {
         @FRAME
         D=M
     `
-    const codeMinusOne = `
+        const codeMinusOne = `
         @FRAME
-        A=A-1
         D=M
+        D=D-1
         `
-    if (num === 0) {
-        return codeMinusZero
-    } else if(num === 1) {
-        return  codeMinusOne
-    }
-    
-    const codeMinusN = `
+        if (num === 0) {
+            return codeMinusZero
+        } else if (num === 1) {
+            return codeMinusOne
+        }
+
+        const codeMinusN = `
         @FRAME
+        D=M
     ` +
-    `
-        A=A-1
-        `.repeat(num) + 
-    `
-        D=M
+            `
+        D=D-1
+        `.repeat(num) +
+            `
         `
-     return codeMinusN
+        return codeMinusN
     }
     writeReturn() {
-      
+
         let code = `
         // return
         // FRAME = LCL
@@ -325,7 +325,15 @@ class CodeWriter {
         M=D
 
         // RET = * (FRAME - 5)
-        ${this.putIntoDAddressOfFrameMinus(5)}
+        @FRAME
+        D=M
+        D=D-1
+        D=D-1
+        D=D-1
+        D=D-1
+        D=D-1
+        A=D
+        D=M
         @RET
         M=D
 
@@ -345,25 +353,48 @@ class CodeWriter {
         M=D+1
 
         // THAT=*(FRAME-1) restore THAT of calling function
-        ${this.putIntoDAddressOfFrameMinus(1)}
+        @FRAME
+        D=M
+        D=D-1
+        A=D
+        D=M
         @THAT
         M=D
 
         // THIS=*(FRAME-2) restore THIS of calling function
-        ${this.putIntoDAddressOfFrameMinus(2)}
+        @FRAME
+        D=M
+        D=D-1
+        D=D-1
+        A=D
+        D=M
         @THIS
         M=D
         // ARG=*(FRAME-3) restore ARG of calling function
-        ${this.putIntoDAddressOfFrameMinus(3)}
+        @FRAME
+        D=M
+        D=D-1
+        D=D-1
+        D=D-1
+        A=D
+        D=M
         @ARG
         M=D
         // LCL=*(FRAME-4) restore LCL of calling function
-        ${this.putIntoDAddressOfFrameMinus(4)}
+        @FRAME
+        D=M
+        D=D-1
+        D=D-1
+        D=D-1
+        D=D-1
+        A=D
+        D=M
         @LCL
         M=D
 
         // goto RET  GOTO the return-address
         @RET
+        A=M
         0;JMP
         `
         this.fileStream.write(code)
@@ -434,7 +465,8 @@ class CodeWriter {
     }
 
     codeForPopPushLocalOrArgumentOrThisOrThatOrTemp(isTypePopOrPush, segment, index) {
-        const segments = { local: `LCL
+        const segments = {
+            local: `LCL
         D=M
         `, argument: `ARG
         D=M
