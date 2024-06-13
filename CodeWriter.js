@@ -162,7 +162,7 @@ class CodeWriter {
         M=M-1
         A=M
         D=M
-        @${this.getFileName() + "$" + label}
+        @${this.getFileName() + ":" + label}
         D;JGT
         `
         this.fileStream.write(code)
@@ -170,7 +170,7 @@ class CodeWriter {
     writeGoto(label) {
         let code = `
         // goto ${label}
-        @${this.getFileName() + "$" + label}
+        @${this.getFileName() + ":" + label}
         0;JMP`
         this.fileStream.write(code)
     }
@@ -196,17 +196,17 @@ class CodeWriter {
 
     writeCall(functionName, amountOfArgVars) {
         const returnIndex = this.provideAvailableIndex(functionName)
-        const returnLabel = functionName + "$ret." + returnIndex
-        const fivePlusAmOfArgs = amountOfArgVars + 5
+        const returnLabel = functionName + ".return." + returnIndex
         let code = `
         // call ${functionName} ${amountOfArgVars}
-        // put returnAddress, increase SP by 1
+        
+        // put the label to where the callee should jump to (i.e. after the code of this call, i.e. at the bottom, see returnLabel)
+        
         @${returnLabel}
         D=A
         @SP
         A=M
         M=D
-
         @SP
         M=M+1
 
@@ -251,8 +251,11 @@ class CodeWriter {
         M=M+1
 
         // reposition ARG to the first passed argument
-        @${fivePlusAmOfArgs}
-        D=A
+        @`
+        +
+        (parseInt(amountOfArgVars) + parseInt(5)) +`\n`
+        +
+        `D=A
         @SP
         D=M-D
         @ARG
@@ -266,7 +269,7 @@ class CodeWriter {
 
         @${functionName}
         0;JMP
-        // the return will go here
+
         (${returnLabel})
         `
         this.fileStream.write(code)
@@ -287,35 +290,8 @@ class CodeWriter {
         this.fileStream.write(code)
     }
 
-    putIntoDAddressOfFrameMinus(num) {
-        const codeMinusZero = `
-        @FRAME
-        D=M
-    `
-        const codeMinusOne = `
-        @FRAME
-        D=M
-        D=D-1
-        `
-        if (num === 0) {
-            return codeMinusZero
-        } else if (num === 1) {
-            return codeMinusOne
-        }
-
-        const codeMinusN = `
-        @FRAME
-        D=M
-    ` +
-            `
-        D=D-1
-        `.repeat(num) +
-            `
-        `
-        return codeMinusN
-    }
     writeReturn() {
-
+        const whereToJump = `JUMP_AFTER_DONE_${this.provideAvailableIndex("return")}`
         let code = `
         // return
         // FRAME = LCL
@@ -324,7 +300,8 @@ class CodeWriter {
         @FRAME
         M=D
 
-        // RET = * (FRAME - 5)
+        // where to jump after the return is complete
+        // that address is stored in LCL(or FRAME )-5
         @FRAME
         D=M
         D=D-1
@@ -334,10 +311,10 @@ class CodeWriter {
         D=D-1
         A=D
         D=M
-        @RET
+        @${whereToJump}
         M=D
 
-        // *ARG = pop()
+        // Get value above the return command, push it into where arg is stored...
         @SP
         M=M-1
         A=M
@@ -346,7 +323,7 @@ class CodeWriter {
         A=M
         M=D
 
-        // SP = ARG+1
+        // This return SP to the callee, positioning it just below the return of the function which was called and has now finished running
         @ARG
         D=M
         @SP
@@ -392,9 +369,8 @@ class CodeWriter {
         @LCL
         M=D
 
-        // goto RET  GOTO the return-address
-        @RET
-        A=M
+        // now go to just where the last call command finishes
+        @${whereToJump}
         0;JMP
         `
         this.fileStream.write(code)
