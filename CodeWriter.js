@@ -197,7 +197,7 @@ class CodeWriter {
     writeCall(functionName, amountOfArgVars) {
         const returnIndex = this.provideAvailableIndex("return")
         const returnAddress = functionName + ".return." + returnIndex
-        const arg0Loc = `D=D-1`.repeat(amountOfArgVars)
+        const arg0Loc = `D=D-1\n`.repeat(amountOfArgVars)
         let code = `
         // call ${functionName} ${amountOfArgVars}
         @SP
