@@ -195,14 +195,97 @@ class CodeWriter {
     }
 
     writeCall(functionName, amountOfArgVars) {
+        const returnIndex = this.provideAvailableIndex("return")
+        const returnAddress = functionName + ".return." + returnIndex
+        const arg0Loc = `D=D-1`.repeat(amountOfArgVars)
         let code = `
         // call ${functionName} ${amountOfArgVars}
+        @SP
+        D=M
+        ${arg0Loc}
+        // D now contains the local ARG, store it
+        @localArg
+        M=D
+        // save old arg
+        
+        @ARG
+        D=M
+        @oldArg
+        M=D
+        // set local arg
+        @localArg
+        D=M
+        @ARG
+        M=D
+
+        // store return address
+        @${returnAddress}
+        D=A
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
+
+        // save caller's LCL
+        @LCL
+        D=M
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
+
+        // save caller's ARG
+        @oldArg
+        D=M
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
+
+        // save caller's THIS
+        @THIS
+        D=M
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
+
+        // save caller's THAT
+        @THAT
+        D=M
+        @SP
+        A=M
+        M=D
+        @SP
+        M=M+1
+
+
+
+        (${returnAddress})
         `
         this.fileStream.write(code)
     }
     writeFunction(functionName, amountOfLocalVars) {
+        const pushLocal0= `
+        @SP
+        A=M
+        M=0
+        @SP
+        M=M+1
+        `.repeat(amountOfLocalVars)
         let code = `
         // function ${functionName} ${amountOfLocalVars}
+        // set LCL to SP
+        @SP
+        D=M
+        @LCL
+        M=D
+        ${pushLocal0}
+
         `
         this.fileStream.write(code)
     }
@@ -210,6 +293,81 @@ class CodeWriter {
     writeReturn() {
         let code = `
         // return
+        // first of all, get the return value and put it into local *ARG
+        @SP
+        A=M-1
+        D=M
+        @ARG
+        A=M
+        M=D
+
+        // Okay, here we don't need the callee's SP or ARG anymore, so we might as well restore the SP it to the caller's SP now
+        @ARG
+        D=M+1
+        @SP
+        M=D
+
+        // now, we set a reference point from which we can access caller's THAT, THIS, ARG and LCL.
+        // the reference is just callee's LCL
+        @LCL
+        D=M
+        @referencePoint
+        M=D
+
+        // let's store the return address, we will use it at the end
+        // it's located in referencePoint-5
+        @5
+        D=A
+        @referencePoint
+        D=M-D
+        A=D
+        D=M
+        @returnAddress
+        M=D
+
+        // Now we can restore the caller's THAT, THIS, ARG and LCL
+        
+        // repP - 1 is THAT
+        @referencePoint
+        D=M-1
+        A=D
+        D=M
+        @THAT
+        M=D
+        
+        // THIS is refP -2
+        @2
+        D=A
+        @referencePoint
+        D=M-D
+        A=D
+        D=M
+        @THIS
+        M=D
+        
+        // ARG is refP - 3
+        @3
+        D=A
+        @referencePoint
+        D=M-D
+        A=D
+        D=M
+        @ARG
+        M=D
+        // LCL is refP - 4
+        @4
+        D=A
+        @referencePoint
+        D=M-D
+        A=D
+        D=M
+        @LCL
+        M=D
+
+        // Okay, now we have restored everything to the caller's state, we can jump to the return address and exit the function
+        @returnAddress
+        A=M
+        0;JMP
         `
         this.fileStream.write(code)
     }
