@@ -195,183 +195,21 @@ class CodeWriter {
     }
 
     writeCall(functionName, amountOfArgVars) {
-        const returnIndex = this.provideAvailableIndex(functionName)
-        const returnLabel = functionName + ".return." + returnIndex
         let code = `
         // call ${functionName} ${amountOfArgVars}
-        
-        // put the label to where the callee should jump to (i.e. after the code of this call, i.e. at the bottom, see returnLabel)
-        
-        @${returnLabel}
-        D=A
-        @SP
-        A=M
-        M=D
-        @SP
-        M=M+1
-
-        // put LCL, increase SP by 1
-        @LCL
-        D=M
-        @SP
-        A=M
-        M=D
-        
-        @SP
-        M=M+1
-
-        // put ARG, increase SP by 1
-        @ARG
-        D=M
-        @SP
-        A=M
-        M=D
-        
-        @SP
-        M=M+1
-                
-        // put THIS, increase SP by 1
-        @THIS
-        D=M
-        @SP
-        A=M
-        M=D
-        
-        @SP
-        M=M+1
-
-        // put THAT, increase SP by 1
-        @THAT
-        D=M
-        @SP
-        A=M
-        M=D
-        
-        @SP
-        M=M+1
-
-        // reposition ARG to the first passed argument
-        @`
-        +
-        (parseInt(amountOfArgVars) + parseInt(5)) +`\n`
-        +
-        `D=A
-        @SP
-        D=M-D
-        @ARG
-        M=D
-
-        // reposition, LCL = SP
-        @SP
-        D=M
-        @LCL
-        M=D
-
-        @${functionName}
-        0;JMP
-
-        (${returnLabel})
         `
         this.fileStream.write(code)
     }
     writeFunction(functionName, amountOfLocalVars) {
-        const pushInitLocalVarsToZero = `
-        @SP
-        A=M
-        M=0
-        @SP
-        M=M+1
-        `.repeat(amountOfLocalVars)
         let code = `
         // function ${functionName} ${amountOfLocalVars}
-        (${functionName})
-        ${pushInitLocalVarsToZero}
         `
         this.fileStream.write(code)
     }
 
     writeReturn() {
-        const whereToJump = `JUMP_AFTER_DONE_${this.provideAvailableIndex("return")}`
         let code = `
         // return
-        // FRAME = LCL
-        @LCL
-        D=M
-        @FRAME
-        M=D
-
-        // where to jump after the return is complete
-        // that address is stored in LCL(or FRAME )-5
-        @FRAME
-        D=M
-        D=D-1
-        D=D-1
-        D=D-1
-        D=D-1
-        D=D-1
-        A=D
-        D=M
-        @${whereToJump}
-        M=D
-
-        // Get value above the return command, push it into where arg is stored...
-        @SP
-        M=M-1
-        A=M
-        D=M
-        @ARG
-        A=M
-        M=D
-
-        // This return SP to the callee, positioning it just below the return of the function which was called and has now finished running
-        @ARG
-        D=M
-        @SP
-        M=D+1
-
-        // THAT=*(FRAME-1) restore THAT of calling function
-        @FRAME
-        D=M
-        D=D-1
-        A=D
-        D=M
-        @THAT
-        M=D
-
-        // THIS=*(FRAME-2) restore THIS of calling function
-        @FRAME
-        D=M
-        D=D-1
-        D=D-1
-        A=D
-        D=M
-        @THIS
-        M=D
-        // ARG=*(FRAME-3) restore ARG of calling function
-        @FRAME
-        D=M
-        D=D-1
-        D=D-1
-        D=D-1
-        A=D
-        D=M
-        @ARG
-        M=D
-        // LCL=*(FRAME-4) restore LCL of calling function
-        @FRAME
-        D=M
-        D=D-1
-        D=D-1
-        D=D-1
-        D=D-1
-        A=D
-        D=M
-        @LCL
-        M=D
-
-        // now go to just where the last call command finishes
-        @${whereToJump}
-        0;JMP
         `
         this.fileStream.write(code)
     }
