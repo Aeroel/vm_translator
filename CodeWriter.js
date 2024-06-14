@@ -9,6 +9,21 @@ class CodeWriter {
     constructor(outputFilePath) {
         // "w" flag overwrites the file, if it exists, effectively deleting it before writing into it
         this.fileStream = fs.createWriteStream(outputFilePath, { flags: 'w' });
+        this.writeInit()
+    }
+    writeInit() {
+        let code = `
+        // SP = 256
+        @261
+        D=A
+        @SP
+        M=D
+        
+        // call Sys.init
+        @Sys.init
+        0;JMP
+        `
+        this.fileStream.write(code)
     }
     setFileName(fileName) {
         this.currentFileName = fileName;
@@ -195,31 +210,13 @@ class CodeWriter {
     }
 
     writeCall(functionName, amountOfArgVars) {
-        const returnIndex = this.provideAvailableIndex("return")
-        const returnAddress = functionName + ".return." + returnIndex
-        const arg0Loc = `D=D-1\n`.repeat(amountOfArgVars)
-        let code = `
+        let code
+        const fiveN = parseInt(5)+parseInt(amountOfArgVars)
+        let returnLabel  = `RETURN_${this.provideAvailableIndex("return")}`
+        code = `
         // call ${functionName} ${amountOfArgVars}
-        @SP
-        D=M
-        ${arg0Loc}
-        // D now contains the local ARG, store it
-        @localArg
-        M=D
-        // save old arg
-        
-        @ARG
-        D=M
-        @oldArg
-        M=D
-        // set local arg
-        @localArg
-        D=M
-        @ARG
-        M=D
-
-        // store return address
-        @${returnAddress}
+        @${returnLabel}
+        // Push return address onto stack
         D=A
         @SP
         A=M
@@ -227,7 +224,7 @@ class CodeWriter {
         @SP
         M=M+1
 
-        // save caller's LCL
+        // save lcl, arg, this and that
         @LCL
         D=M
         @SP
@@ -236,8 +233,7 @@ class CodeWriter {
         @SP
         M=M+1
 
-        // save caller's ARG
-        @oldArg
+        @ARG
         D=M
         @SP
         A=M
@@ -245,7 +241,6 @@ class CodeWriter {
         @SP
         M=M+1
 
-        // save caller's THIS
         @THIS
         D=M
         @SP
@@ -254,7 +249,6 @@ class CodeWriter {
         @SP
         M=M+1
 
-        // save caller's THAT
         @THAT
         D=M
         @SP
@@ -263,9 +257,25 @@ class CodeWriter {
         @SP
         M=M+1
 
+        // set callee's ARG
+        @${fiveN}
+        D=A
+        @SP
+        D=M-D
+        @ARG
+        M=D
 
+        // Set callee's lcl
+        @SP
+        D=M
+        @LCL
+        M=D
 
-        (${returnAddress})
+        // execute callee's code
+        @${functionName}
+        0;JMP
+        
+        (${returnLabel})
         `
         this.fileStream.write(code)
     }
@@ -279,11 +289,7 @@ class CodeWriter {
         `.repeat(amountOfLocalVars)
         let code = `
         // function ${functionName} ${amountOfLocalVars}
-        // set LCL to SP
-        @SP
-        D=M
-        @LCL
-        M=D
+        (${functionName})
         ${pushLocal0}
 
         `
