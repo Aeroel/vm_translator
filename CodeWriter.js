@@ -14,7 +14,7 @@ class CodeWriter {
     writeInit() {
         let code = `
         // SP = 256
-        @261
+        @256
         D=A
         @SP
         M=D
