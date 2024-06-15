@@ -20,10 +20,10 @@ class CodeWriter {
         M=D
         
         // call Sys.init
-        @Sys.init
-        0;JMP
+        
+        ${this.codeForCall("Sys.init", 0)}
         `
-        this.fileStream.write(code)
+       // this.fileStream.write(code)
     }
     setFileName(fileName) {
         this.currentFileName = fileName;
@@ -178,7 +178,7 @@ class CodeWriter {
         A=M
         D=M
         @${this.getFileName() + ":" + label}
-        D;JGT
+        D;JNE
         `
         this.fileStream.write(code)
     }
@@ -209,7 +209,7 @@ class CodeWriter {
         this.fileStream.write(code)
     }
 
-    writeCall(functionName, amountOfArgVars) {
+    codeForCall(functionName, amountOfArgVars) {
         let code
         const fiveN = parseInt(5)+parseInt(amountOfArgVars)
         let returnLabel  = `RETURN_${this.provideAvailableIndex("return")}`
@@ -277,6 +277,12 @@ class CodeWriter {
         
         (${returnLabel})
         `
+        return code
+
+    }
+
+    writeCall(functionName, amountOfArgVars) {
+        const code = this.codeForCall(functionName, amountOfArgVars)
         this.fileStream.write(code)
     }
     writeFunction(functionName, amountOfLocalVars) {
@@ -299,18 +305,18 @@ class CodeWriter {
     writeReturn() {
         let code = `
         // return
-        // first of all, get the return value and put it into local *ARG
+
+                // get the return value and temporarily store it
         @SP
         A=M-1
         D=M
-        @ARG
-        A=M
+        @returnValue
         M=D
 
-        // Okay, here we don't need the callee's SP or ARG anymore, so we might as well restore the SP it to the caller's SP now
+        // return value address 
         @ARG
-        D=M+1
-        @SP
+        D=M
+        @returnValueAddress
         M=D
 
         // now, we set a reference point from which we can access caller's THAT, THIS, ARG and LCL.
@@ -368,6 +374,19 @@ class CodeWriter {
         A=D
         D=M
         @LCL
+        M=D
+        
+        // get the return value and put it into local *ARG
+        @returnValue
+        D=M
+        @returnValueAddress
+        A=M
+        M=D
+
+        // Okay, here we don't need the callee's SP or ARG anymore, so we might as well restore the SP it to the caller's SP now
+        @returnValueAddress
+        D=M+1
+        @SP
         M=D
 
         // Okay, now we have restored everything to the caller's state, we can jump to the return address and exit the function
